@@ -1,0 +1,43 @@
+name: Monitor de Gasto Meta
+
+on:
+  schedule:
+    # 11:00 UTC = 08:00 BRT (Brazil is UTC-3 year-round)
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor-meta-spend
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run monitor
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          META_BUDGET_BRL: ${{ vars.META_BUDGET_BRL || '600' }}
+          META_BALANCE_THRESHOLD_BRL: ${{ vars.META_BALANCE_THRESHOLD_BRL || '150' }}
+        run: node scripts/monitor-meta-spend.mjs
+
+      - name: Commit log
+        run: |
+          if [[ -n "$(git status --porcelain data/)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/meta-spend-log.jsonl
+            git commit -m "chore(monitor): append meta spend log $(date -u +%Y-%m-%d)"
+            git push
+          fi
