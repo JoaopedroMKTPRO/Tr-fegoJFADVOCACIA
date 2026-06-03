@@ -1,0 +1,23 @@
+name: Discover Telegram chat_id
+
+on:
+  workflow_dispatch:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call getUpdates and extract chat_id
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
+            echo "::error::TELEGRAM_BOT_TOKEN secret is not set"
+            exit 1
+          fi
+          resp=$(curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates")
+          echo "Raw response:"
+          echo "$resp" | jq '.'
+          echo ""
+          echo "Detected chat_ids (unique):"
+          echo "$resp" | jq -r '[.result[]?.message?.chat?.id, .result[]?.edited_message?.chat?.id, .result[]?.channel_post?.chat?.id] | map(select(.!=null)) | unique | .[]'
